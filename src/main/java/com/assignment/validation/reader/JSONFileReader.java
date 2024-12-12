@@ -11,14 +11,14 @@ import java.util.List;
 
 public class JSONFileReader implements FileReader {
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     @Override
     public List<Transaction> readFile(InputStream inputStream) {
-        ObjectMapper objectMapper = new ObjectMapper();
 
         try {
             // Parse JSON into a list of Transaction objects
             return  objectMapper.readValue(inputStream, new TypeReference<>() {});
-
         } catch (IOException e) {
             throw new InvalidJSONContentException("Invalid JSON content. Please upload a valid JSON file.");
         }

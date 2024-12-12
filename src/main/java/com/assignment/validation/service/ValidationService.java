@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 @Service
@@ -23,67 +24,18 @@ public class ValidationService {
     private static final String UNSUPPORTED_FILE_TYPE_MSG = "Unsupported file type: ";
     private static final String INVALID_FILE_MSG = "Invalid file. Please upload a file.";
 
-
-
-    public static Report validateTransactions(List<Transaction> transactions) {
-        Set<Long> uniqueReferences = new HashSet<>();
-        List<TransactionError> transactionErrors = new ArrayList<>();
-        int validTransactionCount = 0;
-
-        for (Transaction transaction : transactions) {
-            List<String> errors = validateTransaction(transaction, uniqueReferences);
-
-            if (errors.isEmpty()) {
-                validTransactionCount++;
-            } else {
-                transactionErrors.add(new TransactionError(transaction.getReference(), errors));
-            }
-        }
-
-        int invalidTransactionCount = transactionErrors.size();
-
-        return new Report(validTransactionCount, invalidTransactionCount, transactionErrors);
-    }
-
-    // Helper method to validate a single transaction
-    public static List<String> validateTransaction(Transaction transaction, Set<Long> uniqueReferences) {
-        List<String> errors = new ArrayList<>();
-
-        // Validate unique reference
-        validateUniqueReference(transaction.getReference(), uniqueReferences, errors);
-
-        // Validate end balance
-        validateEndBalance(transaction, errors);
-
-        return errors;
-    }
-
-    // Validates the uniqueness of a transaction reference
-    private static void validateUniqueReference(Long reference, Set<Long> uniqueReferences, List<String> errors) {
-        if (!uniqueReferences.add(reference)) {
-            errors.add("Duplicate reference");
-        }
-    }
-
-    // Validates the end balance of a transaction
-    private static void validateEndBalance(Transaction transaction, List<String> errors) {
-        double calculatedEndBalance = transaction.getStartBalance() + transaction.getMutation();
-        if (Double.compare(calculatedEndBalance, transaction.getEndBalance()) != 0) {
-            errors.add("Incorrect end balance");
-        }
-    }
-
     public Report validate(MultipartFile file) {
         validateFile(file);
+
         try (var inputStream = file.getInputStream()) {
             // get the appropriate file reader based on the file type
             // then start processing the file
-            List<Transaction> transactionList =  getFileReader(file.getOriginalFilename()).readFile(inputStream);
-            return validateTransactions(transactionList);
+            FileReader fileReader = getFileReader(file.getOriginalFilename());
+            List<Transaction> transactions = fileReader.readFile(inputStream);
+            return validateTransactions(transactions);
         } catch (IOException e) {
             throw new InvalidFileException("Error reading file: " + e.getMessage());
         }
-
     }
 
     private void validateFile(MultipartFile file) {
@@ -101,7 +53,44 @@ public class ValidationService {
         }
         throw new UnsupportedFileTypeException(UNSUPPORTED_FILE_TYPE_MSG + filename);
     }
-   
+
+    private Report validateTransactions(List<Transaction> transactions) {
+        Set<Long> uniqueReferences = new HashSet<>();
+
+        List<TransactionError> transactionErrors = transactions.stream()
+                .map(transaction -> validateTransaction(transaction, uniqueReferences))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .toList();
+
+        int validTransactionCount = transactions.size() - transactionErrors.size();
+        return new Report(validTransactionCount, transactionErrors.size(), transactionErrors);
+    }
+
+    // Helper method to validate a single transaction
+    private Optional<TransactionError> validateTransaction(Transaction transaction, Set<Long> uniqueReferences) {
+        List<String> errors = new ArrayList<>();
+
+        validateUniqueReference(transaction.getReference(), uniqueReferences, errors);
+        validateEndBalance(transaction, errors);
+
+        return errors.isEmpty() ? Optional.empty() : Optional.of(new TransactionError(transaction.getReference(), errors));
+    }
+
+    // Validates the uniqueness of a transaction reference
+    private void validateUniqueReference(Long reference, Set<Long> uniqueReferences, List<String> errors) {
+        if (!uniqueReferences.add(reference)) {
+            errors.add("Duplicate reference");
+        }
+    }
+
+    // Validates the end balance of a transaction
+    private void validateEndBalance(Transaction transaction, List<String> errors) {
+        double calculatedEndBalance = transaction.getStartBalance() + transaction.getMutation();
+        if (Double.compare(calculatedEndBalance, transaction.getEndBalance()) != 0) {
+            errors.add("Incorrect end balance");
+        }
+    }
 }
 
 /*private void validateIBAN(String iban) {

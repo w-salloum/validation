@@ -11,51 +11,56 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 public class CSVFileReader implements FileReader {
 
-    private static final List<String> EXPECTED_HEADERS = Arrays.asList(
-            "Reference", "AccountNumber", "Description", "Start Balance", "Mutation", "End Balance"
-    );
+    private static final List<String> EXPECTED_HEADERS = List.of("Reference", "AccountNumber", "Description", "Start Balance", "Mutation", "End Balance");
 
     @Override
     public List<Transaction> readFile(InputStream inputStream) {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
-            CSVParser csvParser = CSVFormat.DEFAULT.parse(reader);
+            CSVParser csvParser = CSVFormat.DEFAULT
+                    .builder()
+                    .setHeader()
+                    .setSkipHeaderRecord(true)
+                    .build()
+                    .parse(reader);
 
             // Validate Headers
-            List<String> headers = csvParser.getHeaderNames();
-            if (!headers.equals(EXPECTED_HEADERS)) {
-                throw new InvalidCSVContentException("Invalid CSV headers: " + headers);
-            }
+            validateHeaders(csvParser.getHeaderNames());
 
-            List<Transaction> result = new ArrayList<>();
+            List<Transaction> transactions = new ArrayList<>();
 
             // Process Records
             for (CSVRecord record : csvParser) {
-                String reference = record.get("Reference");
-                String accountNumber = record.get("AccountNumber");
-                String description = record.get("Description");
-                double startBalance = Double.parseDouble(record.get("Start Balance"));
-                double mutation = Double.parseDouble(record.get("Mutation"));
-                double endBalance = Double.parseDouble(record.get("End Balance"));
-
-                Transaction transaction = Transaction.builder()
-                        .reference(Long.parseLong(reference))
-                        .accountNumber(accountNumber)
-                        .description(description)
-                        .startBalance(startBalance)
-                        .mutation(mutation)
-                        .endBalance(endBalance)
-                        .build();
-
-                result.add(transaction);
+                transactions.add(parseTransaction(record));
             }
-            return result;
-        } catch (IOException e) {
-            throw new InvalidCSVContentException("Error reading CSV file: "+ e.getMessage());
+
+            return transactions;
+        } catch (IOException | IllegalArgumentException e) {
+            throw new InvalidCSVContentException("Error reading CSV file: " + e.getMessage());
+        }
+    }
+
+    private void validateHeaders(List<String> headers) {
+        if (!headers.containsAll(EXPECTED_HEADERS)) {
+            throw new InvalidCSVContentException("CSV file has missing or invalid headers. Expected: " + EXPECTED_HEADERS + ", Found: " + headers);
+        }
+    }
+
+    private Transaction parseTransaction(CSVRecord record) {
+        try {
+            return Transaction.builder()
+                    .reference(Long.parseLong(record.get("Reference")))
+                    .accountNumber(record.get("AccountNumber"))
+                    .description(record.get("Description"))
+                    .startBalance(Double.parseDouble(record.get("Start Balance")))
+                    .mutation(Double.parseDouble(record.get("Mutation")))
+                    .endBalance(Double.parseDouble(record.get("End Balance")))
+                    .build();
+        } catch (NumberFormatException e) {
+            throw new InvalidCSVContentException("Invalid number format in record: " + record.toString());
         }
     }
 }
