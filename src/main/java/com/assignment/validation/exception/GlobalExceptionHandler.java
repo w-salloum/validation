@@ -22,4 +22,14 @@ public class GlobalExceptionHandler {
         return new ErrorResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
+    @ExceptionHandler(UnsupportedFileTypeException.class)
+    public ErrorResponse handleUnsupportedFileTypeException(UnsupportedFileTypeException ex) {
+        return new ErrorResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidFileException.class)
+    public ErrorResponse handleInvalidFileException(InvalidFileException ex) {
+        return new ErrorResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
 }

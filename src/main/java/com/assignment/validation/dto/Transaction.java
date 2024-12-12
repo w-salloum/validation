@@ -1,8 +1,10 @@
 package com.assignment.validation.dto;
 
+import lombok.Builder;
 import lombok.Value;
 
 @Value
+@Builder
 public class Transaction {
     private long reference;
     private String accountNumber;

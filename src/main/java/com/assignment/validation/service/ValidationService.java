@@ -3,8 +3,15 @@ package com.assignment.validation.service;
 import com.assignment.validation.dto.Report;
 import com.assignment.validation.dto.Transaction;
 import com.assignment.validation.dto.TransactionError;
+import com.assignment.validation.exception.InvalidFileException;
+import com.assignment.validation.exception.UnsupportedFileTypeException;
+import com.assignment.validation.reader.CSVFileReader;
+import com.assignment.validation.reader.FileReader;
+import com.assignment.validation.reader.JSONFileReader;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -12,6 +19,11 @@ import java.util.Set;
 
 @Service
 public class ValidationService {
+
+    private static final String UNSUPPORTED_FILE_TYPE_MSG = "Unsupported file type: ";
+    private static final String INVALID_FILE_MSG = "Invalid file. Please upload a file.";
+
+
 
     public static Report validateTransactions(List<Transaction> transactions) {
         Set<Long> uniqueReferences = new HashSet<>();
@@ -34,7 +46,7 @@ public class ValidationService {
     }
 
     // Helper method to validate a single transaction
-    private static List<String> validateTransaction(Transaction transaction, Set<Long> uniqueReferences) {
+    public static List<String> validateTransaction(Transaction transaction, Set<Long> uniqueReferences) {
         List<String> errors = new ArrayList<>();
 
         // Validate unique reference
@@ -61,9 +73,38 @@ public class ValidationService {
         }
     }
 
+    public Report validate(MultipartFile file) {
+        validateFile(file);
+        try (var inputStream = file.getInputStream()) {
+            // get the appropriate file reader based on the file type
+            // then start processing the file
+            List<Transaction> transactionList =  getFileReader(file.getOriginalFilename()).readFile(inputStream);
+            return validateTransactions(transactionList);
+        } catch (IOException e) {
+            throw new InvalidFileException("Error reading file: " + e.getMessage());
+        }
 
+    }
 
-    /*private void validateIBAN(String iban) {
+    private void validateFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new InvalidFileException(INVALID_FILE_MSG);
+        }
+    }
+
+    private FileReader getFileReader(String filename) {
+        if (filename.endsWith(".csv")) {
+            return new CSVFileReader();
+        }
+        if (filename.endsWith(".json")) {
+            return new JSONFileReader();
+        }
+        throw new UnsupportedFileTypeException(UNSUPPORTED_FILE_TYPE_MSG + filename);
+    }
+   
+}
+
+/*private void validateIBAN(String iban) {
         // 1. Check length
         if (iban == null || iban.length() < 5 || iban.length() > 34) {
             throw new InvalidIBANException("IBAN length must be between 5 and 34 characters");
@@ -89,5 +130,3 @@ public class ValidationService {
             throw new InvalidIBANException("IBAN is invalid");
         }
     }*/
-   
-}
