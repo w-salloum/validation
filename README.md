@@ -43,13 +43,22 @@ curl -X POST -F "file=@path/to/your/file.json" http://localhost:8080/api/validat
 Example response:
 ```bash
 {
-  "numberOfValidTransactions": 5,
-  "numberOfInvalidTransactions": 1,
-  "transactionErrors": [
-    {
-      "errors": ["Incorrect end balance"]
-    }
-  ]
+    "numberOfValidTransactions": 8,
+    "numberOfInvalidTransactions": 2,
+    "transactionErrors": [
+        {
+            "reference": 112806,
+            "errors": [
+                "Duplicate Reference"
+            ]
+        },
+        {
+            "reference": 112806,
+            "errors": [
+                "Duplicate Reference"
+            ]
+        }
+    ]
 }
 ```
 
