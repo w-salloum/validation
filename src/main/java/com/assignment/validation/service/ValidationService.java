@@ -3,6 +3,7 @@ package com.assignment.validation.service;
 import com.assignment.validation.dto.Report;
 import com.assignment.validation.dto.Transaction;
 import com.assignment.validation.dto.TransactionError;
+import com.assignment.validation.enums.ErrorType;
 import com.assignment.validation.exception.InvalidFileException;
 import com.assignment.validation.exception.UnsupportedFileTypeException;
 import com.assignment.validation.reader.CSVFileReader;
@@ -12,11 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 @Service
 public class ValidationService {
@@ -80,42 +77,22 @@ public class ValidationService {
     // Validates the uniqueness of a transaction reference
     private void validateUniqueReference(Long reference, Set<Long> uniqueReferences, List<String> errors) {
         if (!uniqueReferences.add(reference)) {
-            errors.add("Duplicate reference");
+            errors.add(ErrorType.DUPLICATE_REFERENCE.getMessage());
         }
     }
 
     // Validates the end balance of a transaction
     private void validateEndBalance(Transaction transaction, List<String> errors) {
-        double calculatedEndBalance = transaction.getStartBalance() + transaction.getMutation();
-        if (Double.compare(calculatedEndBalance, transaction.getEndBalance()) != 0) {
-            errors.add("Incorrect end balance");
+        double calculatedEndBalance = roundToTwoDecimalPlaces(transaction.getStartBalance() + transaction.getMutation());
+        double actualEndBalance = roundToTwoDecimalPlaces(transaction.getEndBalance());
+
+        if (Double.compare(calculatedEndBalance, actualEndBalance) != 0) {
+            errors.add(ErrorType.INCORRECT_END_BALANCE.getMessage());
         }
     }
+
+    // Rounds a value to 2 decimal places
+    private double roundToTwoDecimalPlaces(double value) {
+        return Math.round(value * 100.0) / 100.0;
+    }
 }
-
-/*private void validateIBAN(String iban) {
-        // 1. Check length
-        if (iban == null || iban.length() < 5 || iban.length() > 34) {
-            throw new InvalidIBANException("IBAN length must be between 5 and 34 characters");
-        }
-
-        // 2. Check character set
-        iban = iban.toUpperCase();
-        if (!iban.matches("[A-Z]{2}[0-9]{2}[A-Z0-9]{1,30}")) {
-            throw new InvalidIBANException("IBAN contains invalid characters");
-        }
-
-        // 3. Modulo 97 check
-        String reformattedIBAN = iban.substring(4) + iban.substring(0, 4);
-        int total = 0;
-        for (int i = 0; i < reformattedIBAN.length(); i++) {
-            int charValue = Character.getNumericValue(reformattedIBAN.charAt(i));
-            if (charValue < 0) { // Ensure valid numeric value
-                throw new InvalidIBANException("IBAN is invalid");
-            }
-            total = (total * 10 + charValue) % 97;
-        }
-        if( total != 1) {
-            throw new InvalidIBANException("IBAN is invalid");
-        }
-    }*/
